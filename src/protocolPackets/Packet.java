@@ -12,4 +12,5 @@ public interface Packet {
     
     boolean checkSequenceNumber();
     
+    boolean isACK();
 }
