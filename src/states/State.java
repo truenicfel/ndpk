@@ -1,6 +1,11 @@
 package states;
 
 public interface State {
-
-	int getSeqNr();
+	enum Msg {
+		sendPacket,
+		timeout,
+		paketReceived
+	}
+	
+	State execute(Msg msg);
 }

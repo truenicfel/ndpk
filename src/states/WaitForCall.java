@@ -9,8 +9,9 @@ public class WaitForCall implements State {
 	}
 	
 	@Override
-	public int getSeqNr() {
-		return seqNr;
+	public State execute(Msg msg) {
+		// TODO Auto-generated method stub
+		return null;
 	}
 
 }
