@@ -10,7 +10,8 @@ public interface Packet {
     
     boolean checkChecksum();
     
-    boolean checkSequenceNumber();
+    boolean checkSequenceNumber(int sequenceNumber);
     
     boolean isACK();
+    
 }
