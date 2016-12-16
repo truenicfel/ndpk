@@ -2,6 +2,8 @@ package protocolPackets;
 
 import java.net.DatagramPacket;
 import java.nio.ByteBuffer;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.zip.CRC32;
 import java.util.zip.Checksum;
@@ -51,7 +53,7 @@ public class AlternatingBitPacket implements Packet {
      * @param content The content this package will have.
      */
     public AlternatingBitPacket(int sequenceNumber, boolean ACK, byte[] content) {
-        //TODO maximum package length
+        //check maximum package size
         if (content.length > PACKAGESIZE) {
             throw new IllegalArgumentException("The content length is to big!");
         } else {
@@ -124,6 +126,29 @@ public class AlternatingBitPacket implements Packet {
         return ACK;
     }
 
+    @Override
+    public String toString() {
+        StringBuilder builder = new StringBuilder();
+        builder.append("Object{ACK=")
+                .append(isACK())
+                .append(", sequenceNumber=")
+                .append(getSequenceNumber())
+                .append(", checksum=")
+                .append(getChecksum())
+                .append("}")
+                .append("\r\n")
+                .append("UDPPacket{ACK=")
+                .append(isACKPackage())
+                .append(", sequenceNumber=")
+                .append(getSequenceNumberPackage())
+                .append(", checksum=")
+                .append(getCehcksumPackage())
+                .append("}");
+        return builder.toString();
+    }
+    
+    
+
     //private Methods
     //--------------------------------------------------------------------------
     
@@ -134,6 +159,7 @@ public class AlternatingBitPacket implements Packet {
     private boolean isACKPackage() {
         return getUdpPacket().getData()[ACKOFF] == 1;
     }
+    
     /**
      * Returns the Sequence Number of the Datagram Packet.
      * @return The Sequence number as int.
@@ -148,8 +174,8 @@ public class AlternatingBitPacket implements Packet {
      */
     private long getCehcksumPackage() {
         ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
-        buffer.put(Arrays.copyOfRange(getUdpPacket().getData(), CHECKOFF, CONTENTOFF - 1));
-        buffer.flip();
+        buffer.put(Arrays.copyOfRange(getUdpPacket().getData(), CHECKOFF, CONTENTOFF));   
+        buffer.flip();        
         return buffer.getLong();
     }
     
@@ -158,7 +184,11 @@ public class AlternatingBitPacket implements Packet {
      * @param content The byte array to calculate the checksum from.
      * @return The checksum as a long value.
      */
-    private long calculateChecksum(byte[] content) {
+    private long calculateChecksum(byte[] content){
+//        MessageDigest test = MessageDigest.getInstance("MD5");
+//        byte[] array = test.digest(content);
+//        return array;
+        
         //create checksum object
         final Checksum checksumCRC32 = new CRC32();
         //update the checksum with the content
@@ -197,10 +227,10 @@ public class AlternatingBitPacket implements Packet {
         final byte[] header = buffer.array();
         //now merge the two arrays
         //the header first
-        System.arraycopy(header, 0, payload, 0, CONTENTOFF);
+        System.arraycopy(header, 0, payload, 0, header.length);
         //the content second
         for (int i = 0; i < content.length; i++) {
-            payload[i + CONTENTOFF - 1] = content[i];
+            payload[i + CONTENTOFF] = content[i];
         }
         return payload;
     }
