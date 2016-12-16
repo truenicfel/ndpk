@@ -2,12 +2,15 @@ package protocolPackets;
 
 import java.net.DatagramPacket;
 import java.nio.ByteBuffer;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.zip.CRC32;
 import java.util.zip.Checksum;
 
+/**
+ * A class representing Objects which represent AlternatingBitPackages.
+ * 
+ * @author nico
+ */
 public class AlternatingBitPacket implements Packet {
 
     //Object Variables
