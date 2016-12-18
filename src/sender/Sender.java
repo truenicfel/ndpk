@@ -13,27 +13,17 @@ import protocolPackets.AlternatingBitPacket;
 public class Sender extends Thread {
 	
 	/**
-	 * <b>The states, that Sender can have.</b>
+	 * <b>Current state.</b>
 	 */
-	private enum State {
-		waitForCall0,
-		waitForAck0,
-		waitForCall1,
-		waitForAck1
-	}
+	private states.State currentState;
 	
 	/**
-	 * Current state.
-	 */
-	private State currentState;
-	
-	/**
-	 * File to be send.
+	 * <b>File to be send.</b>
 	 */
 	private final Path file;
 	
 	/**
-	 * IP-Address of the receiver.
+	 * <b>IP-Address of the receiver.</b>
 	 */
 	private final String ipAdress;
 	
@@ -48,7 +38,7 @@ public class Sender extends Thread {
 		this.ipAdress = ipAdress;
 		
 		// set start state
-		this.currentState = State.waitForCall0;
+		this.currentState = states.State.waitForAck0;
 	}
 	
 	/**
@@ -61,11 +51,12 @@ public class Sender extends Thread {
 		try {
 			// read file in byte array
 			final byte[] data = Files.readAllBytes(getFile());
-			
 			// split data in packets
 			for (int start = 0; start < data.length; start += AlternatingBitPacket.PACKAGESIZE) {
 				// packet is a sub-array of the data array with the length defined in AlternatingBitPacket (last package may be smaller)
 				final byte[] packet = Arrays.copyOfRange(data, start, start + AlternatingBitPacket.PACKAGESIZE <= data.length ?  start + AlternatingBitPacket.PACKAGESIZE : data.length);
+				
+				// TODO
 			}
 			
 		} catch (IOException exception) {
@@ -78,7 +69,7 @@ public class Sender extends Thread {
 	/**
 	 * <b>Start sending the file.</b>
 	 * 
-	 * This method just calls the Thread.start() method, but still is preferred.
+	 * This method just calls the Thread.start() method, but still is preferred using.
 	 */
 	public void send() {
 		start();
@@ -91,7 +82,7 @@ public class Sender extends Thread {
 	 * 
 	 * @return the current state
 	 */
-	private State getCurrentState() {
+	private states.State getCurrentState() {
 		return currentState;
 	}
 	
@@ -100,7 +91,7 @@ public class Sender extends Thread {
 	 * 
 	 * @param currentState is the new current state
 	 */
-	private void setCurrentState(State currentState) {
+	private void setCurrentState(states.State currentState) {
 		this.currentState = currentState;
 	}
 	

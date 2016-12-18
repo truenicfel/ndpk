@@ -1,7 +1,6 @@
 package sender;
 
 import java.io.File;
-import java.nio.file.InvalidPathException;
 
 public class Main {
 	
@@ -36,20 +35,20 @@ public class Main {
 					+ "\r\n"
 					+ "If you need help, start the program with the -help argument.");
 		}
-		// check if the given file exists
-		else if (!new File(args[0]).exists()) {
-			showError(
-					"The named File \"" + args[0] + "\" can not be found."
-					+ "\r\n"
-					+ "If you need help, start the program with the -help argument."
-					);
-		}
 		// check if the given file is a directory
 		else if (new File(args[0]).isDirectory()) {
 			showError(
 					"\"" + args[0] + "\" is a directory and not a file."
 					+ "\r\n"
 					+ "If you need help, start the program with the -help argument."
+					);
+		}
+		// check if the given file exists
+		else if (!new File(args[0]).exists()) {
+			showError(
+					"The named File \"" + args[0] + "\" can not be found."
+							+ "\r\n"
+							+ "If you need help, start the program with the -help argument."
 					);
 		}
 		// everything is ok
