@@ -232,9 +232,7 @@ public class AlternatingBitPacket implements Packet {
         //the header first
         System.arraycopy(header, 0, payload, 0, header.length);
         //the content second
-        for (int i = 0; i < content.length; i++) {
-            payload[i + CONTENTOFF] = content[i];
-        }
+        System.arraycopy(content, 0, payload, CONTENTOFF, content.length);
         return payload;
     }
 
