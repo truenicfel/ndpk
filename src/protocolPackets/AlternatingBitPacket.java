@@ -198,13 +198,9 @@ public class AlternatingBitPacket implements Packet {
         
         final byte[] checksumArray = new byte[CHECKOFF + content.length];
         
-        for (int i = 0; i < CHECKOFF; i++) {
-        	checksumArray[i] = header[i];
-        }
+        System.arraycopy(header, 0, checksumArray, 0, CHECKOFF);
         
-        for (int i = 0; i < content.length; i++) {
-            checksumArray[i + CHECKOFF] = content[i];
-        }
+        System.arraycopy(content, 0, checksumArray, CHECKOFF, content.length);
         this.checksum = calculateChecksum(checksumArray);
         
         //fill the checksum into the buffer

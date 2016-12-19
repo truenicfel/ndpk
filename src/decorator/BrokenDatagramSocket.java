@@ -35,7 +35,7 @@ import java.util.logging.Logger;
  *
  * @author nico
  */
-public class BrokenOutputStream extends DatagramSocket {
+public class BrokenDatagramSocket extends DatagramSocket {
 
     //Object Variables
     //--------------------------------------------------------------------------
@@ -83,7 +83,7 @@ public class BrokenOutputStream extends DatagramSocket {
      *
      * @param out The output stream to break!
      */
-    public BrokenOutputStream(DatagramSocket out) throws SocketException {
+    public BrokenDatagramSocket(DatagramSocket out) throws SocketException {
         //call other constructor with standard params
         this(20, 20, 20, out);
     }
@@ -99,7 +99,7 @@ public class BrokenOutputStream extends DatagramSocket {
      * between 0 and 100.
      * @param out The DatagramSocket to break!
      */
-    public BrokenOutputStream(int bitMistakeChance, int packageLossChance, int packageDuplicateChance, DatagramSocket out) throws SocketException {
+    public BrokenDatagramSocket(int bitMistakeChance, int packageLossChance, int packageDuplicateChance, DatagramSocket out) throws SocketException {
 
         //call super constructor
         super();
