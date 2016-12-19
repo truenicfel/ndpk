@@ -17,7 +17,7 @@ public class Main {
 	 */
 	public static void main(String[] args) {
 		// check if help is needed
-		if ("-help".equals(args[0])) {
+		if (args.length != 0 && "-help".equals(args[0])) {
 			// show help
 			showHelp();
 		} 
