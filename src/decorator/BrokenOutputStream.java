@@ -1,6 +1,5 @@
 package decorator;
 
-import java.io.FileNotFoundException;
 import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -9,10 +8,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.TreeMap;
-import java.util.function.BiConsumer;
-import java.util.function.DoubleConsumer;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * A class representing a broken output stream.
@@ -163,7 +158,7 @@ public class BrokenOutputStream extends FilterOutputStream {
     public void write(int input) throws IOException {
         final byte[] output = new byte[1];
         output[0] = (byte) input;
-        getOut().write(output);
+        write(output);
     }
 
     /**
@@ -174,7 +169,7 @@ public class BrokenOutputStream extends FilterOutputStream {
      */
     @Override
     public void write(byte[] input) throws IOException {
-        getOut().write(input, 0, input.length);
+        write(input, 0, input.length);
     }
 
     @Override
@@ -187,7 +182,7 @@ public class BrokenOutputStream extends FilterOutputStream {
         //package duplicate
         final boolean packageDuplicate = calculateChance(getPackageDuplicateChance());
 
-        final List<TriConsumer<Byte[], Integer, Integer>> list = new ArrayList();
+        final List<TriConsumer<Byte[], Integer, Integer>> list = new ArrayList<>();
         //add them to the list if they exist
         if (bitMistake) {
             list.add(getActions().get("bitMistake"));
