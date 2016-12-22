@@ -21,7 +21,7 @@ public class Main {
 		else {
 			try {
 				// create a new Receiver object
-				final Receiver receiver = new Receiver("files/file.txt");
+				final Receiver receiver = new Receiver("files/file.zip");
 				// start receiving
 				receiver.receive();
 			} catch (FileNotFoundException exception) {

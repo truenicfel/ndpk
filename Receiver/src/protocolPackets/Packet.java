@@ -13,5 +13,9 @@ public interface Packet {
     boolean checkSequenceNumber(int sequenceNumber);
     
     boolean isACK();
-    
+
+	int getSequenceNumber();
+
+	boolean isEndFlag();
+
 }

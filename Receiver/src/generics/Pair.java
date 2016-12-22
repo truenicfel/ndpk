@@ -29,4 +29,52 @@ public class Pair<T, U> {
 		this.t = t;
 		this.u = u;
 	}
+
+	/**
+	 * <b>Overwriting the hashCode-Method to use this class as a Map key.</b>
+	 * 
+	 * @see java.lang.Object#hashCode()
+	 */
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((getT() == null) ? 0 : getT().hashCode());
+		result = prime * result + ((getU() == null) ? 0 : getU().hashCode());
+		return result;
+	}
+
+	/**
+	 * <b>Overwriting the equals-Method to use this class as a Map key.</b>
+	 * Two Pairs are equal, if their variables t and u are equal
+	 * 
+	 * @see java.lang.Object#equals(java.lang.Object)
+	 */
+	@Override
+	public boolean equals(Object obj) {
+		boolean result = false;
+		if (obj instanceof Pair<?, ?>) {
+			final Pair<?, ?> pair = (Pair<?, ?>) obj;
+			result = this.getT().equals(pair.getT()) && this.getU().equals(pair.getU());
+		}
+		return result;
+	}
+	
+	/**
+	 * <b>Get t of type T.</b>
+	 * 
+	 * @return t
+	 */
+	public T getT() {
+		return t;
+	}
+	
+	/**
+	 * <b>Get u of Type U.</b>
+	 * 
+	 * @return u
+	 */
+	public U getU() {
+		return u;
+	}
 }

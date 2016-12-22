@@ -8,8 +8,8 @@ import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.TreeMap;
 
 import decorator.BrokenDatagramSocket;
 import generics.Pair;
@@ -104,11 +104,11 @@ public class Sender {
 		this.data = Files.readAllBytes(file);
 
 		// implement all possible actions
-		this.actions = new TreeMap<>();
+		this.actions = new HashMap<>();
 		implementActions();
 
 		// implement all possible transitions
-		this.transitions = new TreeMap<>();
+		this.transitions = new HashMap<>();
 		implementTransitions();
 
 		// set start state
@@ -129,7 +129,8 @@ public class Sender {
 
 		// loop while Sender is sending
 		while (isSending()) {
-			System.out.println("Now in state " + getCurrentState().toString());
+			System.out.println();
+			System.out.println(getCurrentState().toString() + " (" + getBytesSend() + " / " + getData().length + " Bytes send)");
 			// get the action of the current state and execute it, next state
 			// will be returned and set as new current state
 			setCurrentState(getActions().get(getCurrentState()).execute());
@@ -207,6 +208,7 @@ public class Sender {
 
 		// implement transition waitForAck0 -> timeout -> waitForAck0
 		getTransitions().put(new Pair<State, Message>(State.waitForAck0, Message.timeout), () -> {
+			System.out.println("\tTimeout! Resending now...");
 			// send packet again
 			setBytesSend(getBytesSend() - getBytesSendInLastPacket());
 			sendPacket(State.waitForAck0);
@@ -218,6 +220,7 @@ public class Sender {
 		getTransitions().put(new Pair<State, Message>(State.waitForAck0, Message.packetReceived), () -> {
 			// stop timer
 			getTimer().interrupt();
+			System.out.println("\tTimer stopped!");
 			// return new state
 			return State.waitForCall1;
 		});
@@ -240,6 +243,7 @@ public class Sender {
 
 		// implement transition waitForAck1 -> timeout -> waitForAck1
 		getTransitions().put(new Pair<State, Message>(State.waitForAck1, Message.timeout), () -> {
+			System.out.println("\tTimeout! Resending now...");
 			// send packet again
 			setBytesSend(getBytesSend() - getBytesSendInLastPacket());
 			sendPacket(State.waitForAck1);
@@ -251,6 +255,7 @@ public class Sender {
 		getTransitions().put(new Pair<State, Message>(State.waitForAck1, Message.packetReceived), () -> {
 			// stop timer
 			getTimer().interrupt();
+			System.out.println("\tTimer stopped!");
 			// return new state
 			return State.waitForCall0;
 		});
@@ -266,19 +271,26 @@ public class Sender {
 	private void sendPacket(State state) {
 		// content is a sub-array of the data array with the length defined in
 		// AlternatingBitPacket (last package may be smaller)
-		final byte[] content = Arrays.copyOfRange(getData(), getBytesSend(),
-				getBytesSend() + AlternatingBitPacket.PACKETSIZE <= getData().length
-						? getBytesSend() + AlternatingBitPacket.PACKETSIZE : getData().length);
+		final byte[] content = Arrays.copyOfRange(getData(), getBytesSend(), getBytesSend() + AlternatingBitPacket.PACKETSIZE);
 
 		// send the packet with the BrokenDatagramSocket to create errors
-		try (final BrokenDatagramSocket socket = new BrokenDatagramSocket(new DatagramSocket())) {
+		try (final BrokenDatagramSocket socket = new BrokenDatagramSocket()) {
 			// set sequenceNr depending on which state we are going to
 			final int seqNr = state == State.waitForAck0 ? 0 : 1;
+			// calculate it this packet is the last packet of the data
+			final boolean endFlag = (getBytesSend() + content.length) >= getData().length;
 			// create a packet with SeqNr, ACK = false and content
-			final DatagramPacket packet = new AlternatingBitPacket(seqNr, false, content, getIpAdress(), SEND_PORT)
-					.createDatagram();
+			final AlternatingBitPacket abPacket = new AlternatingBitPacket(seqNr, false, endFlag, content, getIpAdress(), SEND_PORT);
+			final DatagramPacket packet = abPacket.createDatagram();
+
+			// store new timer and start it
+			setTimer(new Timer(DEFAULT_TIMEOUT, getTransitions().get(new Pair<State, Message>(state, Message.timeout))));
+			getTimer().start();
+			System.out.println("\tTimer started!");
+			
 			// send the packet
 			socket.send(packet);
+			System.out.println("\tPacket " + abPacket.getSequenceNumber() + " send to " + getIpAdress() + ":" + SEND_PORT + "!");
 		} catch (UnknownHostException exception) {
 			System.err.println("Sorry, the given IP-Address can not be found.");
 			exception.printStackTrace();
@@ -289,11 +301,7 @@ public class Sender {
 			System.err.println("Sorry, something went wrong while sending a packet.");
 			exception.printStackTrace();
 		}
-
-		// store new timer and start it
-		setTimer(new Timer(DEFAULT_TIMEOUT, getTransitions().get(new Pair<State, Message>(state, Message.timeout))));
-		getTimer().start();
-
+		
 		// update bytes send variables
 		setBytesSendInLastPacket(content.length);
 		setBytesSend(getBytesSend() + getBytesSendInLastPacket());
@@ -311,20 +319,24 @@ public class Sender {
 		State nextState = getCurrentState();
 
 		try (final DatagramSocket socket = new DatagramSocket(RECEIVE_PORT)) {
-			// Received data will be stored in this array
-			final byte[] receivedData = new byte[AlternatingBitPacket.PACKETSIZE];
+			// Received data will be stored in this array (header and content)
+			final byte[] receivedData = new byte[AlternatingBitPacket.PACKETSIZE + AlternatingBitPacket.HEADERSIZE];
 			// receive packet
 			final DatagramPacket datagramPacket = new DatagramPacket(receivedData, receivedData.length);
 			socket.receive(datagramPacket);
 			// Wrap in AlternatingBitPacket
 			final AlternatingBitPacket packet = new AlternatingBitPacket(datagramPacket);
 
+			System.out.println("\tACK " + packet.getSequenceNumber() + " received!");
+			
 			// check if packet is correct
+			final boolean isAck = packet.isACK();
 			final boolean ackValid = packet.checkSequenceNumber(ackNr);
 			final boolean checksumValid = packet.checkChecksum();
 
-			// are both valid?
-			if (ackValid && checksumValid) {
+			// valid?
+			if (isAck && ackValid && checksumValid) {
+				System.out.println("\tACK " + packet.getSequenceNumber() + " accepted!");
 				// execute transition and set next state
 				nextState = getTransitions().get(new Pair<State, Message>(getCurrentState(), Message.packetReceived))
 						.execute();

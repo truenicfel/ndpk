@@ -4,10 +4,7 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.DatagramSocketImplFactory;
-import java.net.InetAddress;
-import java.net.SocketAddress;
 import java.net.SocketException;
-import java.nio.channels.DatagramChannel;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -58,11 +55,6 @@ public class BrokenDatagramSocket extends DatagramSocket {
     private final int packageDuplicateChance;
 
     /**
-     * Saves the Socket
-     */
-    private final DatagramSocket out;
-
-    /**
      * Saves the actions performed when a package duplicate/loss or bitMistake
      * occurs.
      */
@@ -76,11 +68,10 @@ public class BrokenDatagramSocket extends DatagramSocket {
      * 20% package loss chance<br>
      * 20% package duplicate chance<br>
      *
-     * @param out The output stream to break!
      */
-    public BrokenDatagramSocket(DatagramSocket out) throws SocketException {
+    public BrokenDatagramSocket() throws SocketException {
         //call other constructor with standard params
-        this(20, 20, 20, out);
+        this(20, 20, 20);
     }
 
     /**
@@ -92,9 +83,8 @@ public class BrokenDatagramSocket extends DatagramSocket {
      * 100.
      * @param packageDuplicateChance The package duplicate chance. Must be
      * between 0 and 100.
-     * @param out The DatagramSocket to break!
      */
-    public BrokenDatagramSocket(int bitMistakeChance, int packageLossChance, int packageDuplicateChance, DatagramSocket out) throws SocketException {
+    public BrokenDatagramSocket(int bitMistakeChance, int packageLossChance, int packageDuplicateChance) throws SocketException {
 
         //call super constructor
         super();
@@ -113,7 +103,6 @@ public class BrokenDatagramSocket extends DatagramSocket {
         this.bitMistakeChance = bitMistakeChance;
         this.packageLossChance = packageLossChance;
         this.packageDuplicateChance = packageDuplicateChance;
-        this.out = out;
         this.actions = new TreeMap<>();
         //action for bitmistake
         actions.put("bitMistake", (DatagramPacket packet) -> {
@@ -125,7 +114,8 @@ public class BrokenDatagramSocket extends DatagramSocket {
             data[toChange] = 0;
             try {
                 //now call send of the underlying DatagramScoket
-                getOut().send(new DatagramPacket(data, data.length, packet.getAddress(), packet.getPort()));
+                super.send(new DatagramPacket(data, data.length, packet.getAddress(), packet.getPort()));
+                System.out.println("\tA bit mistake happened!");
             } catch (IOException exception) {
                 System.out.println("An error has occured while writing data: ");
                 System.out.println(exception.toString());
@@ -133,14 +123,15 @@ public class BrokenDatagramSocket extends DatagramSocket {
         });
         //action for packageLoss
         actions.put("packageLoss", (DatagramPacket packet)
-                -> System.out.println("A package magically disappeared!"));
+                -> System.out.println("\tA package magically disappeared!"));
 
         //action for packageDuplicate
         actions.put("packageDuplicate", (DatagramPacket packet) -> {
             try {
                 //now call write of underlying writer twice
-                getOut().send(packet);
-                getOut().send(packet);
+                super.send(packet);
+                super.send(packet);
+                System.out.println("\tA duplicate packet was send!");
             } catch (IOException exception) {
                 System.out.println("An error has occured while writing data: ");
                 System.out.println(exception.toString());
@@ -151,62 +142,12 @@ public class BrokenDatagramSocket extends DatagramSocket {
         actions.put("normal", (DatagramPacket packet) -> {
             try {
                 //now call write of underlying writer
-                getOut().send(packet);
+                super.send(packet);
             } catch (IOException exception) {
                 System.out.println("An error has occured while writing data: ");
                 System.out.println(exception.toString());
             }
         });
-    }
-
-    @Override
-    public synchronized void bind(SocketAddress addr) throws SocketException {
-        out.bind(addr);
-    }
-
-    @Override
-    public void connect(InetAddress address, int port) {
-        out.connect(address, port);
-    }
-
-    @Override
-    public void connect(SocketAddress addr) throws SocketException {
-        out.connect(addr);
-    }
-
-    @Override
-    public void disconnect() {
-        out.disconnect();
-    }
-
-    @Override
-    public boolean isBound() {
-        return out.isBound();
-    }
-
-    @Override
-    public boolean isConnected() {
-        return out.isConnected();
-    }
-
-    @Override
-    public InetAddress getInetAddress() {
-        return out.getInetAddress();
-    }
-
-    @Override
-    public int getPort() {
-        return out.getPort();
-    }
-
-    @Override
-    public SocketAddress getRemoteSocketAddress() {
-        return out.getRemoteSocketAddress();
-    }
-
-    @Override
-    public SocketAddress getLocalSocketAddress() {
-        return out.getLocalSocketAddress();
     }
 
     /**
@@ -248,91 +189,6 @@ public class BrokenDatagramSocket extends DatagramSocket {
 
     }
 
-    @Override
-    public synchronized void receive(DatagramPacket p) throws IOException {
-        out.receive(p);
-    }
-
-    @Override
-    public InetAddress getLocalAddress() {
-        return out.getLocalAddress();
-    }
-
-    @Override
-    public int getLocalPort() {
-        return out.getLocalPort();
-    }
-
-    @Override
-    public synchronized void setSoTimeout(int timeout) throws SocketException {
-        out.setSoTimeout(timeout);
-    }
-
-    @Override
-    public synchronized int getSoTimeout() throws SocketException {
-        return out.getSoTimeout();
-    }
-
-    @Override
-    public synchronized void setSendBufferSize(int size) throws SocketException {
-        out.setSendBufferSize(size);
-    }
-
-    @Override
-    public synchronized int getSendBufferSize() throws SocketException {
-        return out.getSendBufferSize();
-    }
-
-    @Override
-    public synchronized void setReceiveBufferSize(int size) throws SocketException {
-        out.setReceiveBufferSize(size);
-    }
-
-    @Override
-    public synchronized int getReceiveBufferSize() throws SocketException {
-        return out.getReceiveBufferSize();
-    }
-
-    @Override
-    public synchronized void setReuseAddress(boolean on) throws SocketException {
-        out.setReuseAddress(on);
-    }
-
-    @Override
-    public synchronized boolean getReuseAddress() throws SocketException {
-        return out.getReuseAddress();
-    }
-
-    @Override
-    public synchronized void setBroadcast(boolean on) throws SocketException {
-        out.setBroadcast(on);
-    }
-
-    @Override
-    public synchronized boolean getBroadcast() throws SocketException {
-        return out.getBroadcast();
-    }
-
-    @Override
-    public synchronized void setTrafficClass(int tc) throws SocketException {
-        out.setTrafficClass(tc);
-    }
-
-    @Override
-    public synchronized int getTrafficClass() throws SocketException {
-        return out.getTrafficClass();
-    }
-
-    @Override
-    public boolean isClosed() {
-        return out.isClosed();
-    }
-
-    @Override
-    public DatagramChannel getChannel() {
-        return out.getChannel();
-    }
-
     public static synchronized void setDatagramSocketImplFactory(DatagramSocketImplFactory fac) throws IOException {
         DatagramSocket.setDatagramSocketImplFactory(fac);
     }
@@ -359,10 +215,6 @@ public class BrokenDatagramSocket extends DatagramSocket {
         return actions;
     }
 
-    private DatagramSocket getOut() {
-        return out;
-    }
-
     /**
      * This function will give true with a given chance
      *
@@ -373,21 +225,5 @@ public class BrokenDatagramSocket extends DatagramSocket {
         //if the number generated by numberGenerator is smaller or equal to the
         //chance (in %) divided by 100 this will result true 
         return getNumberGenerator().nextDouble() <= chance / 100.0;
-    }
-
-    /**
-     * Turns a byte[] into a byte.
-     *
-     * @param input
-     * @param offset
-     * @param length
-     * @return
-     */
-    private Byte[] toBoxed(byte[] input) {
-        final Byte[] output = new Byte[input.length];
-        for (int i = 0; 0 < input.length; i++) {
-            output[i] = input[i];
-        }
-        return output;
     }
 }

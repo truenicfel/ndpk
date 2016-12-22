@@ -15,17 +15,24 @@ public class AlternatingBitPacket implements Packet {
     //Static Private:
     private final static int SEQUENCENUMBEROFF = 3;
     private final static int ACKOFF = 4;
-    private final static int CHECKOFF = 5;
-    private final static int CONTENTOFF = 13;
+    private final static int ENDOFF = 5;
+    private final static int CHECKOFF = 6;
+    private final static int CONTENTOFF = 14;
 
     //Static Public:
     public final static int PACKETSIZE = 1400;
+    public final static int HEADERSIZE = CONTENTOFF;
 
     //Private:
     /**
      * Saves if this an ACKnowledgement.
      */
     final private boolean ACK;
+
+    /**
+     * Saves if this is the last packet of the file.
+     */
+    final private boolean endFlag;
 
     /**
      * Saves the sequenceNumber of this package.
@@ -53,12 +60,13 @@ public class AlternatingBitPacket implements Packet {
      * @param content The content this package will have.
      * @throws UnknownHostException
      */
-    public AlternatingBitPacket(int sequenceNumber, boolean ACK, byte[] content, String ipAddress, int port) throws UnknownHostException {
+    public AlternatingBitPacket(int sequenceNumber, boolean ACK, boolean endFlag, byte[] content, String ipAddress, int port) throws UnknownHostException {
         if (content.length > PACKETSIZE) {
             throw new IllegalArgumentException("The content length is to big!");
         } else {
             this.sequenceNumber = sequenceNumber;
             this.ACK = ACK;
+            this.endFlag = endFlag;
             //create the first part of the header (sequence number + ack flag)
             final byte[] firstHeaderPart = createHeader();
             //create the an array for calculating the checksum (sequence number + ackflag + content)
@@ -85,13 +93,23 @@ public class AlternatingBitPacket implements Packet {
     public AlternatingBitPacket(DatagramPacket udpPacket) {
         this.udpPacket = udpPacket;
         this.ACK = isACKPackage();
+        this.endFlag = isEndFlagPackage();
         this.sequenceNumber = getSequenceNumberPackage();
+
+        // get content
+        final byte[] content = Arrays.copyOfRange(getUdpPacket().getData(), CONTENTOFF, getUdpPacket().getData().length);
+        final byte[] checksumArray = new byte[CHECKOFF + content.length];
+        final byte[] firstHeaderPart = Arrays.copyOfRange(getUdpPacket().getData(), 0, CHECKOFF);
+        System.arraycopy(firstHeaderPart, 0, checksumArray, 0, CHECKOFF);
+        System.arraycopy(content, 0, checksumArray, CHECKOFF, content.length);
+        
         //do not use the checksum which is in the header field
         //calculate it extra to compare them afterwards
-        this.checksum = calculateChecksum(Arrays.copyOfRange(getUdpPacket().getData(), CONTENTOFF, getUdpPacket().getData().length));
+        this.checksum = calculateChecksum(checksumArray);
     }
 
-    //public Methods
+
+	//public Methods
     //--------------------------------------------------------------------------
     /**
      * Returns a DatagramPacket representation of this object which can be sent
@@ -108,11 +126,11 @@ public class AlternatingBitPacket implements Packet {
      * Compares the Checksum which was sent with the packet and the checksum we
      * calculated.
      *
-     * @return True if they match false if they dont.
+     * @return True if they match, false if they dont.
      */
     @Override
     public boolean checkChecksum() {
-        return getChecksum() == getCehcksumPackage();
+        return getChecksum() == getChecksumPackage();
     }
 
     /**
@@ -137,6 +155,48 @@ public class AlternatingBitPacket implements Packet {
         return ACK;
     }
 
+    /**
+     * Returns it this is the last packet or not
+     * 
+     * @see protocolPackets.Packet#isEndFlag()
+     * @return true, if this is the last packet of the file
+     */
+    @Override
+    public boolean isEndFlag() {
+		return endFlag;
+	}
+    
+    /**
+     * Get the Sequence Number of this Packet.
+     *
+     * @return The sequence number (0,1) as int.
+     */
+    @Override
+    public int getSequenceNumber() {
+    	return sequenceNumber;
+    }
+    
+    /**
+     * <b>toString implemented.</b>
+     * 
+     * @see java.lang.Object#toString()
+     */
+    @Override
+    public String toString() {
+    	
+    	return "Object: "
+    			+ "SeqNr: " + getSequenceNumber() 
+    			+ ", ACK: " + isACK() 
+    			+ ", END :" + isEndFlag()
+    			+ ", Checksum: " + getChecksum()
+    			+ "\r\n"
+    			+ "Package: "
+    	    	+ "SeqNr: " + getSequenceNumberPackage() 
+    	    	+ ", ACK: " + isACKPackage()
+    	    	+ ", END :" + isEndFlagPackage()
+    	    	+ ", Checksum: " + getChecksumPackage();
+    }
+
     //private Methods
     //--------------------------------------------------------------------------
     /**
@@ -146,6 +206,15 @@ public class AlternatingBitPacket implements Packet {
      */
     private boolean isACKPackage() {
         return getUdpPacket().getData()[ACKOFF] == 1;
+    }
+
+    /**
+     * CHecks the Datagram Packet in this object if its the last packet of the file.
+     * 
+     * @return true, if it is the last packet
+     */
+    private boolean isEndFlagPackage() {
+    	return getUdpPacket().getData()[ENDOFF] == 1;
     }
 
     /**
@@ -162,9 +231,9 @@ public class AlternatingBitPacket implements Packet {
      *
      * @return The checksum as long value.
      */
-    private long getCehcksumPackage() {
+    private long getChecksumPackage() {
         ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
-        buffer.put(Arrays.copyOfRange(getUdpPacket().getData(), CHECKOFF, CONTENTOFF - 1));
+        buffer.put(Arrays.copyOfRange(getUdpPacket().getData(), CHECKOFF, CONTENTOFF));
         buffer.flip();
         return buffer.getLong();
     }
@@ -217,31 +286,20 @@ public class AlternatingBitPacket implements Packet {
      */
     private byte[] createHeader() {
 
-        //first 13 bytes (sequence number + ACKFlag)
-        final ByteBuffer buffer = ByteBuffer.allocate(Integer.BYTES + 1);
+        //first 13 bytes (sequence number + ACKFlag + ENDFlag)
+        final ByteBuffer buffer = ByteBuffer.allocate(Integer.BYTES + 1 + 1);
         //fill the sequence number into the buffer
         buffer.putInt(getSequenceNumber());
-        //set the ack flag
-        byte ackFlag;
-        if (isACK()) {
-            ackFlag = 1;
-        } else {
-            ackFlag = 0;
-        }
-        //put the ackflag
+        //set flags
+        final byte ackFlag = (byte) (isACK() ? 1 : 0);
+        final byte endFlag = (byte) (isEndFlag() ? 1 : 0);
+        //put flags to buffer
         buffer.put(ackFlag);
+        buffer.put(endFlag);
         //return the new array
         return buffer.array();
     }
 
-    /**
-     * Get the Sequence Number of this Packet.
-     *
-     * @return The sequence number (0,1) as int.
-     */
-    public int getSequenceNumber() {
-        return sequenceNumber;
-    }
 
     /**
      * Get the Checksum of this Packet.

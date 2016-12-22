@@ -8,6 +8,6 @@ public enum Message {
 	/**
 	 * <b>Send a packet.</b>
 	 */
-	sendAck
+	sendAck;
 	
 }

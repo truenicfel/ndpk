@@ -3,13 +3,13 @@ package receiver;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream.GetField;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.SocketException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.TreeMap;
 
 import decorator.BrokenDatagramSocket;
 import generics.Pair;
@@ -63,7 +63,7 @@ public class Receiver {
 	/**
 	 * <b>Stores every byte packet.</b>
 	 */
-	private final ArrayList<byte[]> data;
+	private ArrayList<byte[]> data;
 
 	/**
 	 * <b>Store if Receiver is receiving or not.</b>
@@ -93,15 +93,18 @@ public class Receiver {
 		this.data = new ArrayList<>();
 		
 		// implement all possible actions
-		this.actions = new TreeMap<>();
+		this.actions = new HashMap<>();
 		implementActions();
 
 		// implement all possible transitions
-		this.transitions = new TreeMap<>();
+		this.transitions = new HashMap<>();
 		implementTransitions();
 
 		// set start state
 		this.currentState = State.waitForData;
+		
+		// init current sequence nr with -1 to know that this is the start
+		this.currentSeqNr = -1;
 
 		// Receiver is not receiving yet
 		this.receiving = false;
@@ -123,7 +126,8 @@ public class Receiver {
 			
 			// loop as long there was no end-packet
 			while (isReceiving()) {
-				System.out.println("Now in state " + getCurrentState().toString());
+				System.out.println();
+				System.out.println(getCurrentState().toString() + " (" + getData().size() * AlternatingBitPacket.PACKETSIZE + " Bytes received)");
 				// get the action of the current state and execute it, next state
 				// will be returned and set as new current state
 				setCurrentState(getActions().get(getCurrentState()).execute());
@@ -136,10 +140,12 @@ public class Receiver {
 					writer.write(packet);
 				}
 			}
+			System.out.println("File stored!");
+
 			// clear the data array for next incoming file
-			for (int i = 0; i < getData().size(); i++) {
-				getData().remove(i);
-			}
+			setData(new ArrayList<>());
+			
+			System.out.println("-------------------------------------------------------------------------");
 		}
 	}
 
@@ -182,13 +188,14 @@ public class Receiver {
 	 */
 	private void sendAck() {
 		// send the packet with the BrokenDatagramSocket to create errors
-		try (final BrokenDatagramSocket socket = new BrokenDatagramSocket(new DatagramSocket())) {
+		try (final BrokenDatagramSocket socket = new BrokenDatagramSocket()) {
 			// set sequenceNr depending on which state we are going to
 			// create a packet with SeqNr, ACK = false and content
-			final DatagramPacket packet = new AlternatingBitPacket(getCurrentSeqNr(), true, new byte[0], getIpAdress(), SEND_PORT)
+			final DatagramPacket packet = new AlternatingBitPacket(getCurrentSeqNr(), true, false, new byte[AlternatingBitPacket.PACKETSIZE], getIpAdress(), SEND_PORT)
 					.createDatagram();
 			// send the packet
 			socket.send(packet);
+			System.out.println("\tACK " + getCurrentSeqNr() + " send to " + getIpAdress() + ":" + SEND_PORT);
 		} catch (SocketException exception) {
 			System.err.println("Sorry, something went wrong with the Socket.");
 			exception.printStackTrace();
@@ -208,30 +215,36 @@ public class Receiver {
 		State nextState = getCurrentState();
 
 		try (final DatagramSocket socket = new DatagramSocket(RECEIVE_PORT)) {
-			// Received data will be stored in this array
-			final byte[] receivedData = new byte[AlternatingBitPacket.PACKETSIZE];
+			// Received data will be stored in this array (header and content)
+			final byte[] receivedData = new byte[AlternatingBitPacket.PACKETSIZE + AlternatingBitPacket.HEADERSIZE];
 			// receive packet
 			final DatagramPacket datagramPacket = new DatagramPacket(receivedData, receivedData.length);
 			socket.receive(datagramPacket);
 			// Wrap in AlternatingBitPacket
 			final AlternatingBitPacket packet = new AlternatingBitPacket(datagramPacket);
+			System.out.println("\tPacket " + packet.getSequenceNumber() + " received!");
 
 			// check if packet is correct
 			final boolean checksumValid = packet.checkChecksum();
-
-			// are both valid?
-			if (checksumValid) {
+			final boolean isAck = packet.isACK();
+			final boolean duplicate = getCurrentSeqNr() == packet.getSequenceNumber();
+			// valid?
+			if (checksumValid && !isAck) {
+				System.out.println("\tPacket " + packet.getSequenceNumber() + " accepted!");
+				// only store data if it is not a duplicate
+				if (!duplicate) {
+					// store received data (without the header)
+					getData().add(Arrays.copyOfRange(receivedData, AlternatingBitPacket.HEADERSIZE, AlternatingBitPacket.PACKETSIZE + AlternatingBitPacket.HEADERSIZE));
+				}
 				// store sender IP-Address
 				setIpAdress(datagramPacket.getAddress().getHostAddress());
 				// store sequence number
 				setCurrentSeqNr(packet.getSequenceNumber());
-				// store received data
-				getData().add(datagramPacket.getData());
 				// execute transition and set next state
 				nextState = getTransitions().get(new Pair<State, Message>(getCurrentState(), Message.sendAck))
 						.execute();
-				// TODO: stop receiving if end-of-file flag was set
-				setReceiving(true);
+				// stop receiving if end-of-file flag was set
+				setReceiving(!packet.isEndFlag());
 			}
 		} catch (IOException exception) {
 			System.err.println("Ups, somethig went wrong while receiving the data. Waiting for next packet...");
@@ -295,6 +308,15 @@ public class Receiver {
 	 */
 	private ArrayList<byte[]> getData() {
 		return data;
+	}
+	
+	/**
+	 * <b>Set a new data List.</b>
+	 * 
+	 * @param data is te new (empty) list
+	 */
+	private void setData(ArrayList<byte[]> data) {
+		this.data = data;
 	}
 
 	/**

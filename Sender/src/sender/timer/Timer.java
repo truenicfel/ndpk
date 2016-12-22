@@ -16,8 +16,6 @@ public class Timer extends Thread {
 	 * <b>Stores the Transition to be executed after timeout</b>
 	 */
 	private final Transition transition;
-
-
 	
 	/**
 	 * <b>Create a new object of Timer with following params.</b>
@@ -37,13 +35,12 @@ public class Timer extends Thread {
 	@Override
 	public void run() {
 		try {
-			System.out.println("Timer started");
 			// sleep
 			sleep(getTimeout());
 			// execute the transition
 			getTransition().execute();
 		} catch (InterruptedException e) {
-			System.out.println("Timer stopped");
+			// just end this thread
 		}
 	}
 
